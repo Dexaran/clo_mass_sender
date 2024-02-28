@@ -25,6 +25,7 @@ Your `.env` now contains the following environment variables:
 - `VALUE_COL` (placeholder) - Index of column holding value
 - `THRESHOLD` (placeholder) - Values below this THRESHOLD will be ignored
 - `PRIVATE_KEY` (placeholder) - Key of source wallet
+- `BATCH_SIZE` (placeholder) - Number of txs in one batch 
 
 Start app:
 

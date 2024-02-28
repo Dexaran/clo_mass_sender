@@ -11,7 +11,7 @@ const IN_FILE = process.env.IN_FILE || 'in_file.csv';
 const OUT_FILE = process.env.OUT_FILE || 'out_file.csv';
 const THRESHOLD = Number(process.env.THRESHOLD || '0'); // skip too small payouts
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const BATCH_SIZE = 500; //
+const BATCH_SIZE = Number(process.env.PRIVATE_KEY || '100'); //
 
 let gasPrice;
 
