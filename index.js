@@ -4,14 +4,15 @@ const readline = require('readline');
 const { Web3 } = require('web3');
 require('dotenv').config();
 
-const RPC = 'https://rpc.callisto.network/';
+const RPC = process.env.RPC || 'https://rpc.callisto.network/';
 const ADDRESS_COL = Number(process.env.ADDRESS_COL || '0');
 const VALUE_COL = Number(process.env.VALUE_COL || '3');
 const IN_FILE = process.env.IN_FILE || 'in_file.csv';
 const OUT_FILE = process.env.OUT_FILE || 'out_file.csv';
 const THRESHOLD = Number(process.env.THRESHOLD || '0'); // skip too small payouts
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const BATCH_SIZE = Number(process.env.PRIVATE_KEY || '100'); //
+const BATCH_SIZE = Number(process.env.BATCH_SIZE || '100'); //
+const START_LINE = Number(process.env.START_LINE || '0'); //
 
 let gasPrice;
 
@@ -23,6 +24,7 @@ async function sleep(ms) {
 
 
 async function getGasPrice(web3) {
+    console.log('Getting GasPrice from Node');
     let res;
 
     try {
@@ -74,17 +76,21 @@ function parseCSV(filePath) {
         crlfDelay: Infinity,
     });
 
+    let counter = 0;
+
     return new Promise((resolve, reject) => {
         // Event listener for each line in the CSV file
         rl.on('line', (line) => {
-            // Split the line into an array of values
-            const values = line.split(';');
+            counter++;
+            if (counter > START_LINE) {
+                const values = line.split(';');
 
-            // Process each value as needed
-            const val = Number(values[VALUE_COL]);
-            if (!isNaN(val)) {
-                if (val >= THRESHOLD) {
-                    results.push([values[ADDRESS_COL], val]);
+                // Process each value as needed
+                const val = Number(values[VALUE_COL]);
+                if (!isNaN(val)) {
+                    if (val >= THRESHOLD) {
+                        results.push([values[ADDRESS_COL], val]);
+                    }
                 }
             }
         });
@@ -108,7 +114,7 @@ function parseCSV(filePath) {
      // init Web3 provider
     const web3 = new Web3(RPC);
     const netId = await web3.eth.net.getId();
-    console.log(`Connected to: ${netId}`);
+    console.log(`Connected to Web3`);
 
     let workArray = [];
     try {
@@ -131,6 +137,20 @@ function parseCSV(filePath) {
         return;
     }
 
+    const outFile = path.resolve(__dirname + `/${OUT_FILE}`);
+    if (fs.existsSync(outFile)) {
+        //
+    } else {
+        try {
+            fs.mkdirSync(path.dirname(outFile));
+        } catch (e) {
+            console.log(`Error creating dir ${e.toString()}`);
+        }
+        fs.writeFileSync(outFile, '', 'utf8');
+        fs.appendFileSync(outFile,`address;value;tx_hash`);
+    }
+
+
     const sourceAddress = getAddressFromKey(web3, PRIVATE_KEY);
     console.log(`Source wallet address; ${sourceAddress}`);
 
@@ -145,14 +165,9 @@ function parseCSV(filePath) {
         return;
     }
 
-    gasPrice = await getGasPrice(web3);
+    gasPrice = process.env.GAS_PRICE ? BigInt(process.env.GAS_PRICE + '000000000') : await getGasPrice(web3);
+    const batchDelay = Number(process.env.BATCH_DELAY || '7');
 
-    const outFile = path.resolve(__dirname + `/${OUT_FILE}`);
-    fs.writeFileSync(outFile, '', 'utf8');
-    let outWriter = fs.createWriteStream(outFile, {
-        flags: 'a' // 'a' means appending (old data will be preserved)
-    });
-    outWriter.write(`address;value;tx_hash`);
 
     let finished = false;
     while (!finished) {
@@ -177,16 +192,22 @@ function parseCSV(filePath) {
                     const res = results[i];
                     if (res.status === 'fulfilled') {
                         const procLine = processing[i];
-                        outWriter.write(`\n${procLine[0]};${procLine[1]};${res.value}`);
+                        fs.appendFileSync(outFile, `\n${procLine[0]};${procLine[1]};${res.value}`);
                     } else {
                         toRepeat.push(processing[i]);
                     }
                 }
 
-                nonce = await web3.eth.getTransactionCount(sourceAddress);
+                try {
+                    nonce = await web3.eth.getTransactionCount(sourceAddress);
+                } catch (e) {
+                    console.error('can not get nonce');
+                }
                 promises = [];
                 processing = [];
                 count = 0;
+                console.error(`...sleeping ${batchDelay} sec`);
+                await sleep(batchDelay * 1000); // wait N secs between batches
             }
         }
 
@@ -198,6 +219,4 @@ function parseCSV(filePath) {
             finished = true;
         }
     }
-
-    outWriter.end(); // close string
 })();

@@ -26,6 +26,10 @@ Your `.env` now contains the following environment variables:
 - `THRESHOLD` (placeholder) - Values below this THRESHOLD will be ignored
 - `PRIVATE_KEY` (placeholder) - Key of source wallet
 - `BATCH_SIZE` (placeholder) - Number of txs in one batch 
+- `BATCH_DELAY` (placeholder) - Delay between batch of txs in seconds 
+- `GAS_PRICE` (placeholder) - Manually provide `gasPrice` in gwei 
+- `RPC` (placeholder) - RPC node address
+- `START_LINE` (placeholder) - Index of line in CSV to start from (e.g. skip previous lines) (default = 0)
 
 Start app:
 
